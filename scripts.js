@@ -4,11 +4,11 @@
 import {generateColor,
         getTextWidth,
         getTextHeight,
-        character_width,
-        character_height,
+        get_height_width,
         getRandomString,
         getWidth,
         getHeight } from './utils.js';
+import { lucretius_one, lucretius_two } from './text.js';
 
 // Load the documents into data.
 var data;
@@ -40,7 +40,6 @@ const SecondWave = new Map([
          [" My Twitter ", "https://twitter.com/_aidan_clark_"]]
     ]
 ]);
-var extra = "Bevan Clark if you really must know....";
 let num_flickers = 30;
 
 // Given a particular number of lines, this looks at the global mapping
@@ -53,7 +52,8 @@ function get_line_object(input_mapping, number_of_lines, number_of_characters) {
         let char_offset = Math.floor(x_offset * number_of_characters);
         for (let i = 0; i < value.length; i++) {
             let [words, link] = value[i];
-            mapping.set(line_offset + i, [char_offset, words, link])
+            let internal_char_offset = Math.min(char_offset, get_num_characters() - words.length);
+            mapping.set(line_offset + i, [internal_char_offset, words, link])
         }
     }
     return mapping;
@@ -105,15 +105,20 @@ function set_other_lines_to_default(num_lines, empty_lines) {
 
 
 function get_num_characters() {
-    return Math.floor(getWidth() / character_width) - 1;
+    let [character_height, character_width] = get_height_width();
+    console.log(character_height, character_width);
+    console.trace()
+    return Math.floor(getWidth() / character_width) - 4;
 }
 
 function num_lines() {
-    return Math.floor(getHeight() / character_height);
+    let [character_height, character_width] = get_height_width();
+    return Math.floor(getHeight() / character_height) - 1;
 }
 
 function set_data_to_text_divisions() {
     let num_characters = get_num_characters();
+    console.log(num_characters);
     data_list = [];
     for (let i = 0; i < Math.floor(data.length / num_characters) ; i++) {
         data_list.push(data.slice(num_characters * i, num_characters * (i + 1)));
@@ -278,6 +283,7 @@ const flipletters = async (is_main = false, skip_flicker = false) => {
     set_other_lines_to_default(num_lines(), empty_lines);
 }
 
+var extra = "Bevan Clark if you really must know....";
 function finalize_words() {
     // We need to add the extra bit, and the hover-colors.
 
@@ -306,21 +312,28 @@ function finalize_words() {
     }
 };
 
+function load_data() {
+    if (Math.random() < 0.5) {
+        data = lucretius_one;
+    } else {
+        data = lucretius_two;
+    }
+}
+
 // This is our function that's called on initialization.
 var running_main = false;
 var should_interrupt_main = false;
 export async function do_main() {
+    await delay(100);
     running_main = true;
-    // Load the data in -- we only need to do this once.
-    const response = await fetch('http://127.0.0.1:5500/lucretius.txt');
-    data = await response.text();
+    load_data();
     set_data_to_text_divisions();
     await text_resize()
     PageState.text_laid_out = true;
     PageState.current_num_lines = num_lines();
     await flipletters(true);
     PageState.words_flipped = true;
-    finalize_words();
+    await finalize_words();
     PageState.finalized = true;
     running_main = false;
   }

@@ -2,18 +2,28 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Aidan B Clark</title>
+  <title>Aidan's Homepage</title>
   <link rel="stylesheet" href="./normalize.css">
   <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,700" rel="stylesheet">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono&family=VT323&display=swap" rel="stylesheet">  <style>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono&family=VT323&display=swap" rel="stylesheet"> 
+  <style>
     html {
       height: 100%;
       overflow: hidden;
     }
     span {
         white-space: pre;
+    }
+    test {
+        position: absolute;
+        visibility: hidden;
+        height: auto;
+        width: auto;
+        position: relative;
+        font-family: 'VT323', monospace;
+        white-space: nowrap; /* Thanks to Herb Caudill comment */
     }
     a:link { text-decoration: none; }
     a:visited { text-decoration: none; }
@@ -24,9 +34,16 @@
         width: calc(100% - 50px);
         position: relative;
         font-family: 'VT323', monospace;
+        font-size: 16px;
         padding: 10px 10px 10px 50px;
         /* text-align: justify; */
         /* text-justify: inter-word; */
+    }
+    @media (pointer:none), (pointer:coarse) {    body {
+        font-size: 38px;
+        width: calc(100% - 50px);
+        /* padding: 00px 00px 00px 00px; */
+    }
     }
     h1 {
         color: gray;
@@ -55,11 +72,12 @@
   </script> -->
 </head>
 <body style="background-color:black;" id="body">
+    <test id="test">Some Weird Thing</test>
     <div id="main"></div>
   <script src="./jquery-3.1.1.min.js"></script>
   <script type="module">
     import {do_main} from './scripts.js';
-    window.onload =do_main
+    window.onload = do_main;
   </script>
 </body>
 </html>

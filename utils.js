@@ -9,8 +9,9 @@ function hex (c) {
       return "00";
     i = Math.round (Math.min (Math.max (0, i), 255));
     return s.charAt ((i - i % 16) / 16) + s.charAt (i % 16);
-  }
+}
   
+
   /* Convert an RGB triplet to a hex string */
   function convertToHex (rgb) {
     return hex(rgb[0]) + hex(rgb[1]) + hex(rgb[2]);
@@ -120,9 +121,12 @@ function getCanvasFontSize(el = document.body) {
     return [fontWeight, fontSize, fontFamily];
 }
 
-const [fontWeight, fontSize, fontFamily] = getCanvasFontSize(document.body);
-export let character_width = getTextWidth("N", `${fontWeight} ${fontSize} ${fontFamily}`) * 2;
-export let character_height = getTextHeight();
+export function get_height_width() {
+    const [fontWeight, fontSize, fontFamily] = getCanvasFontSize(document.body);
+    let character_width = getTextWidth("N", `${fontWeight} ${fontSize} ${fontFamily}`) * 2;
+    let character_height = getTextHeight();
+    return [character_height, character_width];
+}
 
 
 // Randomizes a string.
@@ -142,8 +146,6 @@ export function getRandomString(length, prototype = null, progress = 0.0) {
     }
     return result;
 }
-
-
 
 // Get the screen width.
 export function getWidth() {
