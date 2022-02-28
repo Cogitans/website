@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Aidan B Clark</title>
+  <link rel="stylesheet" href="./normalize.css">
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,700" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono&family=VT323&display=swap" rel="stylesheet">  <style>
+    html {
+      height: 100%;
+      overflow: hidden;
+    }
+    span {
+        white-space: pre;
+    }
+    a:link { text-decoration: none; }
+    a:visited { text-decoration: none; }
+    a:hover { text-decoration: none; }
+    a:active { text-decoration: none; }
+    body {
+        height: calc(100% - 20px);
+        width: calc(100% - 50px);
+        position: relative;
+        font-family: 'VT323', monospace;
+        padding: 10px 10px 10px 50px;
+        /* text-align: justify; */
+        /* text-justify: inter-word; */
+    }
+    h1 {
+        color: gray;
+        padding: 0px 0px 0px 0px;
+        width: calc(100% - 0px);
+        margin: 0%;
+    }
+    h2 {
+        height: calc(100% - 0px);
+        width: calc(100% - 50px);
+        color: red;
+    }
+    a {
+      display: inline-block;
+      position: relative;
+      -webkit-transform: translate(0px, 0px);
+      transform: translate(0px, 0px);
+      transition: all 0.2s ease-out;
+    }
+  </style>
+  <!-- <script>
+    function myFunction() {
+      var number = "123";
+      document.getElementById("myText").innerHTML = number;
+    }
+  </script> -->
+</head>
+<body style="background-color:black;" id="body">
+    <div id="main"></div>
+  <script src="./jquery-3.1.1.min.js"></script>
+  <script type="module">
+    import {do_main} from './scripts.js';
+    window.onload =do_main
+  </script>
+</body>
+</html>
