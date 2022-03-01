@@ -329,38 +329,53 @@ function getAbsoluteHeight(el) {
   }
 
 function flip_all_imgs() {
+    // First we check if the image is too small to show.
+    let chars_per_img = 2;
     let [xoff, yoff] = imgoffset;
-    let [character_height, character_width] = get_height_width();
     for (let i = xoff; i < xoff + 5; i++) {
-        let v = document.getElementById(`h1_${i}`);
+        let v = document.getElementById(`h1_${i + xoff}`);
         let v_post = v.children[2].innerHTML.length;
+        var child;
         if (v_post > 0) {
-            let j = 6;
-            var all_s = "";
-            let end = v.children[2].innerHTML.substring(v.children[2].innerHTML.length - yoff);
-            v.children[2].innerHTML = v.children[2].innerHTML.substring(0, v.children[2].innerHTML.length - yoff);
-            while (j >- 0) {
-                    j--;
-                let s = `<img alt="Q" src="../img/me_${i}_${j}.png"  height="${getAbsoluteHeight(v)}" width="${character_width * 2}">`;
-                let newhtml = v.children[2].innerHTML.substring(0, v.children[2].innerHTML.length - 2);
-                v.children[2].innerHTML = newhtml;
-                all_s = s + all_s;
-            } 
-            v.children[2].innerHTML = v.children[2].innerHTML + all_s + end;
+            child = v.children[2];
         } else {
-            let j = 6;
-            var all_s = "";
-            let end = v.children[0].innerHTML.substring(v.children[0].innerHTML.length - yoff);
-            v.children[0].innerHTML = v.children[0].innerHTML.substring(0, v.children[0].innerHTML.length - yoff);
-            while (j >- 0) {
-                j--;
-                let s = `<img alt="Q" src="../img/me_${i}_${j}.png"  height="${getAbsoluteHeight(v)}" width="${character_width * 2}">`;
-                v.children[0].innerHTML = v.children[0].innerHTML.substring(0, v.children[0].innerHTML.length - 2);
-                all_s = s + all_s;
-            } 
-            v.children[0].innerHTML = v.children[0].innerHTML + all_s + end;
-
+            child = v.children[0];
         }
+        if (child.innerHTML.length < (chars_per_img * 6)) {
+            return;
+        }
+    }
+    // We also don't print if it goes over into the second wave lines.
+    let line_mapping_second = get_line_object(SecondWave, num_lines(), get_num_characters());
+    let second_keys = Array.from(line_mapping_second.keys());
+    for (let i = 0; i < num_lines(); i++) {
+        if (second_keys.includes(i) && (i >= xoff && i < xoff +5)) {
+            return;
+        }
+    }
+
+    let [character_height, character_width] = get_height_width();
+    for (let i = 0; i < 6; i++) {
+        let v = document.getElementById(`h1_${i + xoff}`);
+        let v_post = v.children[2].innerHTML.length;
+        var child;
+        if (v_post > 0) {
+            child = v.children[2];
+        } else {
+            child = v.children[0];
+        }
+        let j = 5;
+        var all_s = "";
+        let end = child.innerHTML.substring(child.innerHTML.length - yoff);
+        child.innerHTML = child.innerHTML.substring(0, child.innerHTML.length - yoff);
+        while (j >= 0) {
+            let s = `<img alt="Q" src="../img/me_${i}_${j}.png"  height="32px" width="${character_width * 2}">`;
+            let newhtml = child.innerHTML.substring(0, child.innerHTML.length - 2);
+            child.innerHTML = newhtml;
+            all_s = s + all_s;
+            j--;
+        } 
+        child.innerHTML = child.innerHTML + all_s + end;
     }
 }
 
@@ -375,6 +390,10 @@ function shuffleArray(array) {
 }
 
 async function make_image() {
+    if (matchMedia('(pointer:coarse)').matches) {
+        // Don't show an image on mobile.
+        return;
+    }
     // If we've loaded the page before, just show everything.
     if (PageState.finalized) {
         flip_all_imgs();
