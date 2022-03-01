@@ -13,6 +13,7 @@ import { lucretius_one, lucretius_two } from './text.js';
 // Load the documents into data.
 var data;
 var data_list = [];
+var imgoffset = [1, 5];
 
 // This class will maintain global state.
 const PageState = {
@@ -106,8 +107,6 @@ function set_other_lines_to_default(num_lines, empty_lines) {
 
 function get_num_characters() {
     let [character_height, character_width] = get_height_width();
-    console.log(character_height, character_width);
-    console.trace()
     return Math.floor(getWidth() / character_width) - 4;
 }
 
@@ -118,7 +117,6 @@ function num_lines() {
 
 function set_data_to_text_divisions() {
     let num_characters = get_num_characters();
-    console.log(num_characters);
     data_list = [];
     for (let i = 0; i < Math.floor(data.length / num_characters) ; i++) {
         data_list.push(data.slice(num_characters * i, num_characters * (i + 1)));
@@ -174,9 +172,8 @@ async function text_resize(previous_state = null) {
     }
 }
 
-function replaceAt(text, index, replacement) {
-    console.log(text);
-    return text.substr(0, index) + replacement + text.substr(index + replacement.length);
+function replaceAt(text, index, replacement, span = 1) {
+    return text.substr(0, index) + replacement + text.substr(index + (span - 1) + replacement.length);
 }
 
 
@@ -320,6 +317,140 @@ function load_data() {
     }
 }
 
+function getAbsoluteHeight(el) {
+    // Get the DOM Node if you pass in a string
+    el = (typeof el === 'string') ? document.querySelector(el) : el; 
+  
+    var styles = window.getComputedStyle(el);
+    var margin = parseFloat(styles['marginTop']) +
+                 parseFloat(styles['marginBottom']);
+  
+    return Math.ceil(el.offsetHeight + margin);
+  }
+
+function flip_all_imgs() {
+    let [xoff, yoff] = imgoffset;
+    let [character_height, character_width] = get_height_width();
+    for (let i = xoff; i < xoff + 5; i++) {
+        let v = document.getElementById(`h1_${i}`);
+        let v_post = v.children[2].innerHTML.length;
+        if (v_post > 0) {
+            let j = 6;
+            var all_s = "";
+            let end = v.children[2].innerHTML.substring(v.children[2].innerHTML.length - yoff);
+            v.children[2].innerHTML = v.children[2].innerHTML.substring(0, v.children[2].innerHTML.length - yoff);
+            while (j >- 0) {
+                    j--;
+                let s = `<img alt="Q" src="../img/me_${i}_${j}.png"  height="${getAbsoluteHeight(v)}" width="${character_width * 2}">`;
+                let newhtml = v.children[2].innerHTML.substring(0, v.children[2].innerHTML.length - 2);
+                v.children[2].innerHTML = newhtml;
+                all_s = s + all_s;
+            } 
+            v.children[2].innerHTML = v.children[2].innerHTML + all_s + end;
+        } else {
+            let j = 6;
+            var all_s = "";
+            let end = v.children[0].innerHTML.substring(v.children[0].innerHTML.length - yoff);
+            v.children[0].innerHTML = v.children[0].innerHTML.substring(0, v.children[0].innerHTML.length - yoff);
+            while (j >- 0) {
+                j--;
+                let s = `<img alt="Q" src="../img/me_${i}_${j}.png"  height="${getAbsoluteHeight(v)}" width="${character_width * 2}">`;
+                v.children[0].innerHTML = v.children[0].innerHTML.substring(0, v.children[0].innerHTML.length - 2);
+                all_s = s + all_s;
+            } 
+            v.children[0].innerHTML = v.children[0].innerHTML + all_s + end;
+
+        }
+    }
+}
+
+/* Randomize array in-place using Durstenfeld shuffle algorithm */
+function shuffleArray(array) {
+    for (var i = array.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var temp = array[i];
+        array[i] = array[j];
+        array[j] = temp;
+    }
+}
+
+async function make_image() {
+    // If we've loaded the page before, just show everything.
+    if (PageState.finalized) {
+        flip_all_imgs();
+    } else{
+        // Let's do something fancier.
+        var img_keys = [...Array(36).keys()];
+        // var img_keys = [4, 1, 3, 0, 2];
+        shuffleArray(img_keys);
+        let num_lines_in_screen = num_lines(); 
+        let chars_in_line = new Array(num_lines_in_screen).fill(0);
+        for (let i = 0; i < num_lines_in_screen; i++) {
+            let v = document.getElementById(`h1_${i}`);
+            let v_post = v.children[2].innerHTML.length;
+            if (v_post > 0) {
+                chars_in_line[i] = v_post;
+            } else {
+                chars_in_line[i] = get_num_characters();
+            }
+        }
+        console.log(chars_in_line);
+        let chars_per_img = 2;
+        let [xoff, yoff] = imgoffset;
+        let [character_height, character_width] = get_height_width();
+        let image_width = (chars_per_img * 6);
+        let chars_replace = new Array(36).fill(0);
+        for (let i = 0; i < img_keys.length; i++) {
+            let img_i = Math.floor(img_keys[i] / 6);
+            let starting_index = chars_in_line[img_i + xoff] - (yoff + image_width);
+            console.log(chars_in_line[img_i + xoff], starting_index, image_width);
+            let img_j = img_keys[i] % 6;
+            let v = document.getElementById(`h1_${img_i + xoff}`);
+            let v_post = v.children[2].innerHTML.length;
+            var child;
+            if (v_post > 0) {
+                child = v.children[2];
+            } else {
+                child = v.children[0];
+            }
+            let img_html = `<img alt="Q" src="../img/me_${img_i}_${img_j}.png"  height="32px" width="${character_width * 2}">`;
+            let length_of_img = img_html.length - 1;
+            console.log(length_of_img);
+            // We're going to replace a character with an image.
+            // First, we need to count the number of characters
+            // preceeding our <img> including <imgs> which have been put in before.
+            var proceeding_chars = starting_index;
+            var in_addition = 0;
+            var imgs_put_in_row_preceeding = 0;
+            console.log(img_i, img_j, img_i * 6, (img_i * 6) + img_j);
+            for (let j = img_i * 6; j < (img_i * 6) + img_j; j++) {
+                if (chars_replace[j] == 1) {
+                    in_addition += length_of_img;
+                    imgs_put_in_row_preceeding += 1;
+                } else {
+                    in_addition += chars_per_img;
+                }
+            }
+            console.log(imgs_put_in_row_preceeding);
+            console.log(in_addition)
+            proceeding_chars += in_addition;
+            console.log(proceeding_chars);
+            console.log(child.innerHTML);
+            console.log(child.innerHTML.substring(0, proceeding_chars));
+            console.log(child.innerHTML.substring(proceeding_chars + chars_per_img));
+            await delay(50);
+            var substr = (
+                child.innerHTML.substring(0, proceeding_chars)
+                + img_html
+                + child.innerHTML.substring(proceeding_chars + chars_per_img) 
+            );
+            child.innerHTML = substr;
+            chars_replace[img_keys[i]] = 1;
+            // if (i == 3) {return;}
+        }
+    }
+}
+
 // This is our function that's called on initialization.
 var running_main = false;
 var should_interrupt_main = false;
@@ -334,6 +465,7 @@ export async function do_main() {
     await flipletters(true);
     PageState.words_flipped = true;
     await finalize_words();
+    await make_image();
     PageState.finalized = true;
     running_main = false;
   }
@@ -370,6 +502,7 @@ async function resize_fn() {
         finalize_words();
         PageState.current_num_lines = num_lines();
     }
+    await make_image();
 
 
 };
