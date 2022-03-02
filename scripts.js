@@ -36,7 +36,7 @@ const InitialWave = new Map([
 ]);
 const SecondWave = new Map([
     [
-        [0.7, 0.6],
+        [0.8, 0.7],
         [[" My Scholar ", "https://scholar.google.com/citations?user=FON6hKEAAAAJ&hl=en"],
          [" My Twitter ", "https://twitter.com/_aidan_clark_"]]
     ]
@@ -61,7 +61,7 @@ function get_line_object(input_mapping, number_of_lines, number_of_characters) {
 }
 
 // Given a line mapping, set the html!
-function set_line_html(data_list, line_mapping, override_fn = null) {
+async function set_line_html(data_list, line_mapping, override_fn = null) {
     for (let [key, value] of line_mapping) {
         let [j, words, link] = value;
         let new_words = words
@@ -70,14 +70,17 @@ function set_line_html(data_list, line_mapping, override_fn = null) {
         var text = data_list[key];
         let mouseover = null;
         let mouseout = null;
-        line.children[0].innerHTML = text.substr(0, j)
+        let change_other_html = false;
         if (override_fn != null) {
-            [new_words, color, mouseover, mouseout] = override_fn(
+            [new_words, color, mouseover, mouseout, change_other_html] = override_fn(
                 line, words, color);
         }
         line.children[1].children[0].innerHTML = new_words;
-        line.children[2].innerHTML = text.substr(j + new_words.length)
         line.children[1].style.color = color
+        if (change_other_html) {
+            line.children[0].innerHTML = text.substr(0, j)
+            line.children[2].innerHTML = text.substr(j + new_words.length)
+        }
         if (link != null) {
             line.children[1].setAttribute("href", link);
         }
@@ -112,7 +115,11 @@ function get_num_characters() {
 
 function num_lines() {
     let [character_height, character_width] = get_height_width();
-    return Math.floor(getHeight() / character_height) - 1;
+    if (matchMedia('(pointer:coarse)').matches) {
+        return Math.floor(getHeight() / (character_height * 2));
+    } else {
+        return Math.floor(getHeight() / character_height);
+    }
 }
 
 function set_data_to_text_divisions() {
@@ -133,6 +140,7 @@ function create_element_structure() {
             var newSpan1 = document.createElement('span');
             var newSpan2 = document.createElement('a');
             var newSpan2_real = document.createElement('span');
+            newSpan2_real.id = `h1_${i}_innerspan`;
             newSpan2.appendChild(newSpan2_real);
             var newSpan3 = document.createElement('span');
             newh.appendChild(newSpan1);
@@ -230,7 +238,7 @@ const flipletters = async (is_main = false, skip_flicker = false) => {
         if (is_main && should_interrupt_main) {return;}
         set_line_html(local_data_list, line_mapping_inital, function(line, words, color) {
             let word = getRandomString(words.length, words, (i + 1) / num_flickers);
-            return [word, "#" + colors[i], null, null];
+            return [word, "#" + colors[i], null, null, i == initial_i];
         });
         if (!skip_flicker) {await delay(50);}
     }
@@ -273,7 +281,7 @@ const flipletters = async (is_main = false, skip_flicker = false) => {
                 mouseover = null;
                 mouseout = null;
             }
-            return [word, "#" + colors[i], mouseover, mouseout];
+            return [word, "#" + colors[i], mouseover, mouseout, i == initial_i];
         });
         if (!skip_flicker) {await delay(50);}
     }
@@ -341,7 +349,7 @@ function flip_all_imgs() {
         } else {
             child = v.children[0];
         }
-        if (child.innerHTML.length < (chars_per_img * 6)) {
+        if (child.innerHTML.length < (chars_per_img * 5)) {
             return;
         }
     }
@@ -349,6 +357,10 @@ function flip_all_imgs() {
     let line_mapping_second = get_line_object(SecondWave, num_lines(), get_num_characters());
     let second_keys = Array.from(line_mapping_second.keys());
     for (let i = 0; i < num_lines(); i++) {
+        if (second_keys.includes(i)) {
+            let v = document.getElementById(`h1_${i}`);
+            yoff = Math.floor((v.children[2].innerHTML.length + 1) / 2);
+        }
         if (second_keys.includes(i) && (i >= xoff && i < xoff +5)) {
             return;
         }
@@ -364,12 +376,12 @@ function flip_all_imgs() {
         } else {
             child = v.children[0];
         }
-        let j = 5;
+        let j = 4;
         var all_s = "";
         let end = child.innerHTML.substring(child.innerHTML.length - yoff);
         child.innerHTML = child.innerHTML.substring(0, child.innerHTML.length - yoff);
         while (j >= 0) {
-            let s = `<img alt="Q" src="../img/me_${i}_${j}.png"  height="32px" width="${character_width * 2}">`;
+            let s = `<img alt="Q" src="../img/me_${i}_${j}.png"  height="${character_height}px" width="${character_width * 2}">`;
             let newhtml = child.innerHTML.substring(0, child.innerHTML.length - 2);
             child.innerHTML = newhtml;
             all_s = s + all_s;
@@ -397,9 +409,18 @@ async function make_image() {
     // If we've loaded the page before, just show everything.
     if (PageState.finalized) {
         flip_all_imgs();
-    } else{
+    } else{    
+        let [xoff, yoff] = imgoffset;
+        let line_mapping_second = get_line_object(SecondWave, num_lines(), get_num_characters());
+        let second_keys = Array.from(line_mapping_second.keys());
+        for (let i = 0; i < num_lines(); i++) {
+            if (second_keys.includes(i)) {
+                let v = document.getElementById(`h1_${i}`);
+                yoff = Math.floor((v.children[2].innerHTML.length + 1) / 2);
+            }
+        }
         // Let's do something fancier.
-        var img_keys = [...Array(36).keys()];
+        var img_keys = [...Array(30).keys()];
         // var img_keys = [4, 1, 3, 0, 2];
         shuffleArray(img_keys);
         let num_lines_in_screen = num_lines(); 
@@ -415,15 +436,15 @@ async function make_image() {
         }
         console.log(chars_in_line);
         let chars_per_img = 2;
-        let [xoff, yoff] = imgoffset;
         let [character_height, character_width] = get_height_width();
-        let image_width = (chars_per_img * 6);
-        let chars_replace = new Array(36).fill(0);
+        let img_blocks_wide = 5;
+        let image_width = (chars_per_img * img_blocks_wide);
+        let chars_replace = new Array(30).fill(0);
         for (let i = 0; i < img_keys.length; i++) {
-            let img_i = Math.floor(img_keys[i] / 6);
+            let img_i = Math.floor(img_keys[i] / img_blocks_wide);
             let starting_index = chars_in_line[img_i + xoff] - (yoff + image_width);
-            console.log(chars_in_line[img_i + xoff], starting_index, image_width);
-            let img_j = img_keys[i] % 6;
+            // console.log(chars_in_line[img_i + xoff], starting_index, image_width);
+            let img_j = img_keys[i] % 5;
             let v = document.getElementById(`h1_${img_i + xoff}`);
             let v_post = v.children[2].innerHTML.length;
             var child;
@@ -432,17 +453,17 @@ async function make_image() {
             } else {
                 child = v.children[0];
             }
-            let img_html = `<img alt="Q" src="../img/me_${img_i}_${img_j}.png"  height="32px" width="${character_width * 2}">`;
+            let img_html = `<img alt="Q" src="../img/me_${img_i}_${img_j}.png"  height="${character_height}px" width="${character_width * 2}">`;
             let length_of_img = img_html.length - 1;
-            console.log(length_of_img);
+            // console.log(length_of_img);
             // We're going to replace a character with an image.
             // First, we need to count the number of characters
             // preceeding our <img> including <imgs> which have been put in before.
             var proceeding_chars = starting_index;
             var in_addition = 0;
             var imgs_put_in_row_preceeding = 0;
-            console.log(img_i, img_j, img_i * 6, (img_i * 6) + img_j);
-            for (let j = img_i * 6; j < (img_i * 6) + img_j; j++) {
+            // console.log(img_i, img_j, img_i * img_blocks_wide , (img_i * img_blocks_wide) + img_j);
+            for (let j = img_i * img_blocks_wide; j < (img_i * img_blocks_wide) + img_j; j++) {
                 if (chars_replace[j] == 1) {
                     in_addition += length_of_img;
                     imgs_put_in_row_preceeding += 1;
@@ -450,13 +471,13 @@ async function make_image() {
                     in_addition += chars_per_img;
                 }
             }
-            console.log(imgs_put_in_row_preceeding);
-            console.log(in_addition)
+            // console.log(imgs_put_in_row_preceeding);
+            // console.log(in_addition)
             proceeding_chars += in_addition;
-            console.log(proceeding_chars);
-            console.log(child.innerHTML);
-            console.log(child.innerHTML.substring(0, proceeding_chars));
-            console.log(child.innerHTML.substring(proceeding_chars + chars_per_img));
+            // console.log(proceeding_chars);
+            // console.log(child.innerHTML);
+            // console.log(child.innerHTML.substring(0, proceeding_chars));
+            // console.log(child.innerHTML.substring(proceeding_chars + chars_per_img));
             await delay(50);
             var substr = (
                 child.innerHTML.substring(0, proceeding_chars)

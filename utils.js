@@ -124,7 +124,12 @@ function getCanvasFontSize(el = document.body) {
 export function get_height_width() {
     const [fontWeight, fontSize, fontFamily] = getCanvasFontSize(document.body);
     let character_width = getTextWidth("N", `${fontWeight} ${fontSize} ${fontFamily}`) * 2;
-    let character_height = getTextHeight();
+    var character_height = getTextHeight();
+    if (matchMedia('(pointer:coarse)').matches) {
+        character_height = 38;
+    } else {
+        character_height = 32;
+    }
     return [character_height, character_width];
 }
 
