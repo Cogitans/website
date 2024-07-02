@@ -50,7 +50,7 @@ const InitialWave = new Map([
 const SecondWave = new Map([
     [
         [0.8, 0.7],
-        [[" My Scholar ", "https://scholar.google.com/citations?user=FON6hKEAAAAJ&hl=en"],
+        [[" My Scholar ", "https://scholar.google.com/citations?user=_19DrfIAAAAJ&hl=en"],
          [" My Twitter ", "https://twitter.com/_aidan_clark_"],
          [" My Thoughts ", null, moveToThoughts],
         ]

@@ -1,0 +1,13 @@
+I'm currently a Member of Technical Staff at OpenAI, where I lead one of the research teams on Post-Training. I've been at OAI since 2022.
+
+Previously I spent four and a half years at DeepMind (missing "Google Deepmind" on both sides) in London, and prior to that I was goofing around as an undergrad at Berkeley.
+
+My research interests lie at the intersection of scalability and efficiency, especially applied to neural network architecture.
+I'm also deeply interested in getting AI into the real world, and am proud to have been critically involved in training models used by hundreds of millions of people.
+In addition to architecture, I've spent time working in Reinforcement Learning (who didn't?), Generative Modeling (of videos, primarily) and DL Systems research.
+I have too many neurons still occupied by the subtleties of TensorFlow.
+
+Outside of work, I enjoy doing my best to not completely lose my ability to read Greek and Latin, not to completely destroy my liver via scotch (and increasingly, Mezcal), and have a passion for the mechanics of firearms (particularly late 19th and early 20th century).
+If you have an obscure Lee-Enfield variant (or derivative) up for sale, I'd be interested.
+
+For research questions or otherwise, reaching out to me via Twitter is likely the best option!
