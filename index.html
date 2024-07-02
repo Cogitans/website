@@ -13,6 +13,14 @@
       height: 100%;
       overflow: hidden;
     }
+    clickoverlay {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      z-index: 100; /* because #access has z-index:5 */
+      display: block;
+      position: absolute; top: 0; left: 0;
+    }
     test {
         position: absolute;
         visibility: hidden;
@@ -34,6 +42,15 @@
           margin: 0%;
           height: 32px;
           white-space: pre;
+          font-family: 'VT323', monospace;
+      }
+      h2 {
+          color: gray;
+          padding: 0px 0px 0px 0px;
+          margin: 0%;
+          height: 32px;
+          white-space: pre;
+          width: calc(100% - 0px);
           font-family: 'VT323', monospace;
       }
       body {
@@ -64,14 +81,16 @@
         margin: 0%;
         height: 76px;
       }
+      h2 {
+        color: gray;
+        padding: 0px 0px 0px 0px;
+        margin: 0%;
+        height: 76px;
+        width: min-content;
+      }
       span {
           white-space: pre;
       }
-    }
-    h2 {
-        height: calc(100% - 0px);
-        width: calc(100% - 50px);
-        color: red;
     }
     img {
       display: inline-block;

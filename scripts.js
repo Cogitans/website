@@ -24,6 +24,19 @@ const PageState = {
     finalized: false,
 };
 
+// This describes whether we're in main-page or sidebar.
+class PageType {
+    // Create new instances of the same class as static attributes
+    static Unloaded = new PageType("Unloaded")
+    static Welcome = new PageType("Welcome")
+    static Sidebar = new PageType("Sidebar")
+  
+    constructor(name) {
+      this.name = name
+    }
+  }
+var current_pagetype = PageType.Unloaded;
+
 
 // Static information we're gonna show.
 // This is a mapping from x-offset, y-offset to list of lines.
@@ -38,10 +51,21 @@ const SecondWave = new Map([
     [
         [0.8, 0.7],
         [[" My Scholar ", "https://scholar.google.com/citations?user=FON6hKEAAAAJ&hl=en"],
-         [" My Twitter ", "https://twitter.com/_aidan_clark_"]]
+         [" My Twitter ", "https://twitter.com/_aidan_clark_"],
+         [" My Thoughts ", null, moveToThoughts],
+        ]
     ]
 ]);
 let num_flickers = 30;
+var SideBarText = [
+    ["Aidan's", null],
+    ["Website.", null],
+    ["", null],
+    ["My Scholar ", "https://scholar.google.com/citations?user=FON6hKEAAAAJ&hl=en"],
+    ["My Twitter ", "https://twitter.com/_aidan_clark_"],
+    ["", null],
+
+];
 
 // Given a particular number of lines, this looks at the global mapping
 // and decides what should be on each line in a fully-shown world.
@@ -52,9 +76,16 @@ function get_line_object(input_mapping, number_of_lines, number_of_characters) {
         let line_offset = Math.floor(y_offset * number_of_lines);
         let char_offset = Math.floor(x_offset * number_of_characters);
         for (let i = 0; i < value.length; i++) {
-            let [words, link] = value[i];
+            var [words, link, click_fn] = [null, null, null];
+            if (value[i].length == 2) {
+                [words, link] = value[i];
+            } else if (value[i].length == 3) {
+                [words, link, click_fn] = value[i];
+            } else {
+                console.error("This is bad.");
+            }
             let internal_char_offset = Math.min(char_offset, get_num_characters() - words.length);
-            mapping.set(line_offset + i, [internal_char_offset, words, link])
+            mapping.set(line_offset + i, [internal_char_offset, words, link, click_fn])
         }
     }
     return mapping;
@@ -63,7 +94,7 @@ function get_line_object(input_mapping, number_of_lines, number_of_characters) {
 // Given a line mapping, set the html!
 async function set_line_html(data_list, line_mapping, override_fn = null) {
     for (let [key, value] of line_mapping) {
-        let [j, words, link] = value;
+        let [j, words, link, click_fn] = value;
         let new_words = words
         let line = document.getElementById(`h1_${key}`)
         let color = "white";
@@ -83,6 +114,8 @@ async function set_line_html(data_list, line_mapping, override_fn = null) {
         }
         if (link != null) {
             line.children[1].setAttribute("href", link);
+        } else if (click_fn != null) {
+            line.children[1].onclick = click_fn;
         }
         if (mouseover != null) {
             line.children[1].setAttribute("data-colorincreasing", false);
@@ -205,6 +238,34 @@ function changeletter(i, j, value, color = "white", link = null) {
     }
 }
 
+function makeFlickerFunctions(el) {
+    let mouseover = async function(){
+        el.setAttribute("data-colorincreasing", true);
+        while (el.getAttribute("data-colorindex") < link_ticks) {
+            if (el.getAttribute("data-colorincreasing") == "false") {
+                return;
+            }
+            let i = parseInt(el.getAttribute("data-colorindex"));
+            el.style.color = "#" + link_colors[i];
+            el.setAttribute("data-colorindex", i + 1)
+            await delay(10);
+        }
+    };
+    let mouseout = async function(){
+        el.setAttribute("data-colorincreasing", false);
+        while (el.getAttribute("data-colorindex") >= 0) {
+            if (el.getAttribute("data-colorincreasing" == "true")) {
+                return;
+            }
+            let i = parseInt(el.getAttribute("data-colorindex"));
+            el.style.color = "#" + link_colors[i];
+            el.setAttribute("data-colorindex", i - 1)
+            await delay(10);
+        }
+    }
+    return [mouseover, mouseout];
+}
+
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
 // This function triggers the expected behavior on page load.
@@ -253,30 +314,7 @@ const flipletters = async (is_main = false, skip_flicker = false) => {
             let mouseover = null;
             let mouseout = null;
             if (i == num_flickers - 1) {
-                mouseover = async function(){
-                    line.children[1].setAttribute("data-colorincreasing", true);
-                    while (line.children[1].getAttribute("data-colorindex") < link_ticks) {
-                        if (line.children[1].getAttribute("data-colorincreasing") == "false") {
-                            return;
-                        }
-                        let i = parseInt(line.children[1].getAttribute("data-colorindex"));
-                        line.children[1].style.color = "#" + link_colors[i];
-                        line.children[1].setAttribute("data-colorindex", i + 1)
-                        await delay(10);
-                    }
-                };
-                mouseout = async function(){
-                    line.children[1].setAttribute("data-colorincreasing", false);
-                    while (line.children[1].getAttribute("data-colorindex") >= 0) {
-                        if (line.children[1].getAttribute("data-colorincreasing" == "true")) {
-                            return;
-                        }
-                        let i = parseInt(line.children[1].getAttribute("data-colorindex"));
-                        line.children[1].style.color = "#" + link_colors[i];
-                        line.children[1].setAttribute("data-colorindex", i - 1)
-                        await delay(10);
-                    }
-                }
+                [mouseover, mouseout] = makeFlickerFunctions(line.children[1]);
             } else {
                 mouseover = null;
                 mouseout = null;
@@ -434,7 +472,6 @@ async function make_image() {
                 chars_in_line[i] = get_num_characters();
             }
         }
-        console.log(chars_in_line);
         let chars_per_img = 2;
         let [character_height, character_width] = get_height_width();
         let img_blocks_wide = 5;
@@ -491,23 +528,136 @@ async function make_image() {
     }
 }
 
+async function flickerOutImage(delay_in_ms) {
+    if (matchMedia('(pointer:coarse)').matches) {
+        // There's nothing to do on mobile.
+        return;
+    }
+    let [xoff, yoff] = imgoffset;
+    let line_mapping_second = get_line_object(SecondWave, num_lines(), get_num_characters());
+    let second_keys = Array.from(line_mapping_second.keys());
+    for (let i = 0; i < num_lines(); i++) {
+        if (second_keys.includes(i)) {
+            let v = document.getElementById(`h1_${i}`);
+            yoff = Math.floor((v.children[2].innerHTML.length + 1) / 2);
+        }
+    }
+    // Let's do something fancier.
+    var img_keys = [...Array(30).keys()];
+    shuffleArray(img_keys);
+    let num_lines_in_screen = num_lines(); 
+    let chars_in_line = new Array(num_lines_in_screen).fill(0);
+    let [character_height, character_width] = get_height_width();
+    let chars_per_img = 2;
+    let img_blocks_wide = 5;
+    let template_html = `<img alt="Q" src="../img/me_0_0.png"  height="${character_height}px" width="${character_width * 2}">`;
+    for (let i = 0; i < num_lines_in_screen; i++) {
+        let v = document.getElementById(`h1_${i}`);
+        let v_post = v.children[2].innerHTML.length;
+        if (v_post > 0) {
+            chars_in_line[i] = v_post
+        } else {
+            chars_in_line[i] = v.children[0].innerHTML.length
+        }
+    }
+    let image_width = (chars_per_img * img_blocks_wide);
+    let chars_replace = new Array(30).fill(1);
+    for (let i = 0; i < img_keys.length; i++) {
+        let img_i = Math.floor(img_keys[i] / img_blocks_wide);
+        let vv = document.getElementById(`h1_${img_i + xoff}`);
+        let len = null;
+        let vv_post = vv.children[2].innerHTML.length;
+        if (vv_post > 0) {
+            len = vv_post
+        } else {
+            len = vv.children[0].innerHTML.length;
+        }
+        let starting_index = len - (yoff);
+        let img_j = img_keys[i] % 5;
+        let img_html = `<img alt="Q" src="../img/me_${img_i}_${img_j}.png"  height="${character_height}px" width="${character_width * 2}">`;
+        let length_of_img = img_html.length - 1;
+        for (let j = img_i * img_blocks_wide + img_j; j < (img_i + 1) * img_blocks_wide; j++) {
+            if (chars_replace[j] == 1) {
+                starting_index -= length_of_img;
+            } else {
+                starting_index -= chars_per_img;
+            }
+        }
+        let v = document.getElementById(`h1_${img_i + xoff}`);
+        let v_post = v.children[2].innerHTML.length;
+        var child;
+        if (v_post > 0) {
+            child = v.children[2];
+        } else {
+            child = v.children[0];
+        }
+        // console.log(length_of_img);
+        // We're going to replace a character with an image.
+        // First, we need to count the number of characters
+        // preceeding our <img> including <imgs> which have been put in before.
+        var proceeding_chars = starting_index;
+        var in_addition = 0;
+        var imgs_put_in_row_preceeding = 0;
+        proceeding_chars += in_addition;
+        await delay(delay_in_ms);
+        var substr = (
+            child.innerHTML.substring(0, proceeding_chars)
+            + "".padStart(chars_per_img, " ")
+            + child.innerHTML.substring(proceeding_chars + length_of_img) 
+        );
+        child.innerHTML = substr;
+        chars_replace[img_keys[i]] = 0;
+        // if (i == 3) {return;}
+    }
+}
+
+function addSkipClick() {
+    let body = document.body;
+    let el = document.createElement('clickoverlay');
+    el.id = "clickoverlay";
+    el.onclick = function() {
+        if (PageState.words_flipped == false) {
+            resize_fn();
+        }
+    };
+    body.appendChild(el)
+}
+
+function removeSkipClick() {
+    let body = document.body;
+    for (let i = 0; i < body.children.length; i++) {
+        var child = body.children[i];
+        if (child.id.startsWith("clickoverlay")) {
+            body.removeChild(child);
+        }
+    }
+}
+
 // This is our function that's called on initialization.
 var running_main = false;
 var should_interrupt_main = false;
 export async function do_main() {
-    await delay(100);
-    running_main = true;
-    load_data();
-    set_data_to_text_divisions();
-    await text_resize()
-    PageState.text_laid_out = true;
-    PageState.current_num_lines = num_lines();
-    await flipletters(true);
-    PageState.words_flipped = true;
-    await finalize_words();
-    await make_image();
-    PageState.finalized = true;
-    running_main = false;
+    if (localStorage.getItem("go_directly_to_thoughts") == "true") {
+        await moveToThoughts();
+    } else {
+        await addSkipClick();
+        await delay(100);
+        running_main = true;
+        load_data();
+        set_data_to_text_divisions();
+        await text_resize()
+        PageState.text_laid_out = true;
+        PageState.current_num_lines = num_lines();
+        await flipletters(true);
+        PageState.words_flipped = true;
+        await finalize_words();
+        await make_image();
+        PageState.finalized = true;
+        running_main = false;
+        current_pagetype = PageType.Welcome;
+        await removeSkipClick();
+    }
+    localStorage.setItem("go_directly_to_thoughts", "false");
   }
 
 // This is our function that's called on a resize.
@@ -543,14 +693,170 @@ async function resize_fn() {
         PageState.current_num_lines = num_lines();
     }
     await make_image();
+    await removeSkipClick();
+    current_pagetype = PageType.Welcome;
 
 
 };
 
+function getRandomInt(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+async function slowdropout(el, delay_in_ms) {
+    let L = el.innerHTML.length;
+    var img_keys = [...Array(L).keys()];
+    shuffleArray(img_keys);
+    for (let i = 0; i < L; i++) {
+        let j = img_keys[i];
+        var substr = (
+            el.innerHTML.substring(0, j)
+            + " "
+            + el.innerHTML.substring(j + 1) 
+        );
+        el.innerHTML = substr;
+        await delay(delay_in_ms);
+    }
+
+}
+
+async function blackoutBackground(delay_in_ms) {
+    let m = num_lines();
+    var promises = Array();
+    for (let i = 0; i <= m; i++) {
+        let line = document.getElementById(`h1_${i}`)
+        if (line != null
+            && line.children.length > 0
+            && line.children[1].children.length > 0) {
+                if (line.children[1].children[0].innerHTML.length > 0) {
+                    promises.push(slowdropout(line.children[0], delay_in_ms));
+                    promises.push(slowdropout(line.children[1].children[0], delay_in_ms));
+                    promises.push(slowdropout(line.children[2], delay_in_ms));
+                } else {
+                    promises.push(slowdropout(line.children[0], delay_in_ms));
+                }
+            }
+    }
+    return Promise.allSettled(promises);
+}
+
+async function drawSidebar(fade_in = true) {
+    let main = document.getElementById(`main`);
+
+    // Delete an existing sidebar and/or make a new one.
+    let maybe_existing = document.getElementById("sidebar");
+    if (maybe_existing != null) {
+        main.removeChild(maybe_existing);
+    }
+    var sidebar = document.createElement('div');
+    sidebar.id = "sidebar";
+    main.appendChild(sidebar);
+
+    // Add the picture on the left-hand side, with the 
+    let [character_height, character_width] = get_height_width();
+    var imgspan = document.createElement('span');
+    imgspan.id = "sidebarimg";
+    let s = `<img alt="Q" src="../img/me.png"  height="${character_height * 6}px" width="${character_width * 2 * 5}">`;
+    if (fade_in == true) {
+        imgspan.style.opacity = 0;
+    }
+    imgspan.innerHTML = s;
+    sidebar.appendChild(imgspan);
+    if (fade_in == true) {
+        for (let i = 0; i <= 100; i += 2) {
+            imgspan.style.opacity = i / 100;
+            await delay(2);
+        }
+    }
+
+    // Draw in each of the title/links.
+    for (let i = 0; i < SideBarText.length; i++) {
+        let str = SideBarText[i][0];
+        let link = SideBarText[i][1];
+        var welcomeh = document.createElement('h1');
+        sidebar.appendChild(welcomeh);
+        var welcomespan = document.createElement('a');
+        welcomespan.innerHTML = str;
+        welcomespan.style.color = "white";
+        if (link != null) {
+            welcomespan.setAttribute("href", link);
+            let [mouseover, mouseout] = makeFlickerFunctions(welcomespan);
+            welcomespan.setAttribute("data-colorincreasing", false);
+            welcomespan.setAttribute("data-colorindex", 0);
+            welcomespan.addEventListener('mouseover', mouseover);
+            welcomespan.addEventListener('mouseout', mouseout);
+        }
+        welcomeh.appendChild(welcomespan);
+    }
+
+    // Now we draw in thoughts!
+}
+
+// This assumes it's being called from the welcome page.
+async function unloadWelcomeAndSwitch(immediate = false) {
+    // Flicker out everything visible.
+    if (immediate == false) {
+        await flickerOutImage(2);
+        await blackoutBackground(3);
+    } else {
+        await flickerOutImage(0);
+        await blackoutBackground(0);
+    }
+
+
+    // Delete the invisible divs!
+    let main = document.getElementById(`main`);
+    let m = num_lines();
+    for (let i = 0; i <= m; i++) {
+        let line = document.getElementById(`h1_${i}`)
+        if (line != null) {
+            main.removeChild(line);
+        }
+    }
+
+    // Draw the sidebar!
+    await drawSidebar(!immediate);
+
+}
+
+// Delete mainpage
+async function switchToSidebar() {
+    if (current_pagetype == PageType.Sidebar) {
+        return;
+    } else if (current_pagetype == PageType.Unloaded) {
+        await drawSidebar(false);
+        current_pagetype = PageType.Sidebar;
+    } else if (current_pagetype == PageType.Welcome) {
+        current_pagetype = PageType.Sidebar;
+        await unloadWelcomeAndSwitch();
+    }
+}
+
+
+// We're gonna work on having a dynamic sidebar....
+var switching = false;;
+async function moveToThoughts() {
+    if (switching == true) {
+        return;
+    } else {
+        switching = true;
+        await switchToSidebar();
+        switching = false;
+
+    }
+    window.history.pushState("Thoughts sidebar", "Thoughts", "/thoughts");
+}
+
 
 var doit;
-window.onresize = resize_fn;
-// async function(){
-//     clearTimeout(doit);
-//     doit = setTimeout(resize_fn, 10);
-// }
+window.onresize = function() {
+    if (current_pagetype == PageType.Sidebar) {
+        drawSidebar(false);
+    } else if (current_pagetype == PageType.Unloaded) {
+        resize_fn();
+    } else if (current_pagetype == PageType.Welcome) {
+        resize_fn();
+    }
+}
