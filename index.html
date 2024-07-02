@@ -13,6 +13,19 @@
       height: 100%;
       overflow: hidden;
     }
+    .left-side {
+        width: 20%;
+        padding: 10px;
+    }
+    .right-side {
+        width: 80%;
+        padding: 10px;
+    }
+    .container {
+        display: flex;
+        width: 100%;
+    }
+
     clickoverlay {
       height: 100%;
       width: 100%;
@@ -119,7 +132,7 @@
   <script src="./jquery-3.1.1.min.js"></script>
   <script type="module">
     import {do_main} from './scripts.js';
-    window.onload = do_main;
+    window.onload = function() {do_main()};
   </script>
 </body>
 </html>

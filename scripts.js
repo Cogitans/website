@@ -24,6 +24,14 @@ const PageState = {
     finalized: false,
 };
 
+function reset_page_state() {
+    PageState.text_laid_out = false;
+    PageState.words_flipped = false;
+    PageState.current_num_lines = 0;
+    PageState.revealed_secret = false;
+    PageState.finalized = false;
+}
+
 // This describes whether we're in main-page or sidebar.
 class PageType {
     // Create new instances of the same class as static attributes
@@ -58,12 +66,12 @@ const SecondWave = new Map([
 ]);
 let num_flickers = 30;
 var SideBarText = [
-    ["Aidan's", null],
-    ["Website.", null],
-    ["", null],
-    ["My Scholar ", "https://scholar.google.com/citations?user=FON6hKEAAAAJ&hl=en"],
-    ["My Twitter ", "https://twitter.com/_aidan_clark_"],
-    ["", null],
+    ["Aidan Clark.", null, null],
+    ["", null, null],
+    ["Home", null, moveToHome],
+    ["My Scholar ", "https://scholar.google.com/citations?user=_19DrfIAAAAJ&hl=en", null],
+    ["My Twitter ", "https://twitter.com/_aidan_clark_", null],
+    ["", null, null],
 
 ];
 
@@ -439,13 +447,13 @@ function shuffleArray(array) {
     }
 }
 
-async function make_image() {
+async function make_image(force = false) {
     if (matchMedia('(pointer:coarse)').matches) {
         // Don't show an image on mobile.
         return;
     }
     // If we've loaded the page before, just show everything.
-    if (PageState.finalized) {
+    if (PageState.finalized || force) {
         flip_all_imgs();
     } else{    
         let [xoff, yoff] = imgoffset;
@@ -636,7 +644,7 @@ function removeSkipClick() {
 // This is our function that's called on initialization.
 var running_main = false;
 var should_interrupt_main = false;
-export async function do_main() {
+export async function do_main(force = false) {
     if (localStorage.getItem("go_directly_to_thoughts") == "true") {
         await moveToThoughts();
     } else {
@@ -648,10 +656,17 @@ export async function do_main() {
         await text_resize()
         PageState.text_laid_out = true;
         PageState.current_num_lines = num_lines();
-        await flipletters(true);
+        console.log(force);
+        let flipping_letters = flipletters(true, force);
+        if (force) {
+            // Instantly make ready.
+            resize_fn();
+        } else {
+            await flipping_letters;
+        }
         PageState.words_flipped = true;
         await finalize_words();
-        await make_image();
+        await make_image(false);
         PageState.finalized = true;
         running_main = false;
         current_pagetype = PageType.Welcome;
@@ -662,7 +677,7 @@ export async function do_main() {
 
 // This is our function that's called on a resize.
 var num_resizes = 0;
-async function resize_fn() {
+async function resize_fn(force_instant = false) {
     num_resizes += 1;
     let expected_num_resizes = num_resizes;
     // If a main function is running, interrupt it.
@@ -670,7 +685,7 @@ async function resize_fn() {
 
     // There are two main paths: has a main function fully run or
     // was there an interruption before it happeed.
-    if (!PageState.finalized) {
+    if (!PageState.finalized || force_instant) {
         // We're in an unfinalized state, we just want to skip
         // initialization for the current state.
         set_data_to_text_divisions();
@@ -746,13 +761,32 @@ async function drawSidebar(fade_in = true) {
     let main = document.getElementById(`main`);
 
     // Delete an existing sidebar and/or make a new one.
-    let maybe_existing = document.getElementById("sidebar");
+    var maybe_existing = document.getElementById("sidebar-box");
     if (maybe_existing != null) {
         main.removeChild(maybe_existing);
     }
+    var sidebar_box = document.createElement('div');
+    sidebar_box.classList.add("container");
+    sidebar_box.id = "sidebar-box";
+    main.appendChild(sidebar_box);
+
+    // Delete an existing sidebar and/or make a new one.
+    maybe_existing = document.getElementById("sidebar");
+    if (maybe_existing != null) {
+        sidebar_box.removeChild(maybe_existing);
+    }
     var sidebar = document.createElement('div');
+    sidebar.classList.add("left-side");
     sidebar.id = "sidebar";
-    main.appendChild(sidebar);
+    sidebar_box.appendChild(sidebar);
+    maybe_existing = document.getElementById("thoughts");
+    if (maybe_existing != null) {
+        sidebar_box.removeChild(maybe_existing);
+    }
+    var thoughts = document.createElement('div');
+    thoughts.id = "thoughts";
+    thoughts.classList.add("right-side");
+    sidebar_box.appendChild(thoughts);
 
     // Add the picture on the left-hand side, with the 
     let [character_height, character_width] = get_height_width();
@@ -775,11 +809,20 @@ async function drawSidebar(fade_in = true) {
     for (let i = 0; i < SideBarText.length; i++) {
         let str = SideBarText[i][0];
         let link = SideBarText[i][1];
-        var welcomeh = document.createElement('h1');
+        let action = SideBarText[i][2];
+        var welcomeh = document.createElement('h2');
         sidebar.appendChild(welcomeh);
         var welcomespan = document.createElement('a');
         welcomespan.innerHTML = str;
         welcomespan.style.color = "white";
+        if (action != null) {
+            welcomespan.onclick = action;
+            let [mouseover, mouseout] = makeFlickerFunctions(welcomespan);
+            welcomespan.setAttribute("data-colorincreasing", false);
+            welcomespan.setAttribute("data-colorindex", 0);
+            welcomespan.addEventListener('mouseover', mouseover);
+            welcomespan.addEventListener('mouseout', mouseout);
+        }
         if (link != null) {
             welcomespan.setAttribute("href", link);
             let [mouseover, mouseout] = makeFlickerFunctions(welcomespan);
@@ -792,6 +835,14 @@ async function drawSidebar(fade_in = true) {
     }
 
     // Now we draw in thoughts!
+    let maybe_existing_placeholder = document.getElementById("thoughts_placeholder");
+    if (maybe_existing_placeholder == null) {
+        let thoughts_placeholder = document.createElement('h1');
+        thoughts_placeholder.id = "thoughts_placeholder"
+        thoughts_placeholder.innerHTML = "I'm sure I'll have some soon..."
+        thoughts.appendChild(thoughts_placeholder);
+    }
+    reset_page_state();
 }
 
 // This assumes it's being called from the welcome page.
@@ -835,9 +886,20 @@ async function switchToSidebar() {
 }
 
 
+async function switchToHomeContent() {
+    localStorage.setItem("go_directly_to_thoughts", "false");
+    var maybe_existing = document.getElementById("sidebar-box");
+    if (maybe_existing != null) {
+        main.removeChild(maybe_existing);
+    }
+    do_main(true);
+}
+
+
+
 // We're gonna work on having a dynamic sidebar....
 var switching = false;;
-async function moveToThoughts() {
+export async function moveToThoughts(push_state = true) {
     if (switching == true) {
         return;
     } else {
@@ -846,7 +908,21 @@ async function moveToThoughts() {
         switching = false;
 
     }
-    window.history.pushState("Thoughts sidebar", "Thoughts", "/thoughts");
+    if (push_state) {
+        window.history.pushState("Thoughts", "Thoughts", "/thoughts");
+    }
+}
+
+
+async function moveToHome() {
+    if (switching) {
+        return;
+    } else {
+        switching = true;
+        await switchToHomeContent();
+        switching = false;
+    }
+    window.history.pushState("Home", "Home", "/");
 }
 
 
@@ -860,3 +936,13 @@ window.onresize = function() {
         resize_fn();
     }
 }
+
+// Event listener for popstate (back button clicked)
+window.addEventListener('popstate', function(event) {
+    // Check if the state is "Home"
+    if (event.state === "Thoughts") {
+        moveToThoughts(false);
+    } else if (event.state === "Home") {
+        switchToHomeContent();
+    }
+});
