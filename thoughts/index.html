@@ -1,0 +1,13 @@
+<!-- There has to be a better way to do this -->
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <script type="module">
+            console.log("here");
+            localStorage.setItem("go_directly_to_thoughts", "true");
+            window.location.replace("http://127.0.0.1:8000/");
+            import {moveToThoughts} from '../scripts.js';
+            moveToThoughts();
+        </script>
+    </head>
+</html>
