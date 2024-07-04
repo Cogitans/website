@@ -426,7 +426,7 @@ function makeFlickerFunctions(el, link_colors) {
     return [mouseover, mouseout];
 }
 
-async function set_text_from_mapping(mapping, is_main, skip_flicker) {
+async function set_text_from_mapping(mapping, is_main, skip_flicker, delay) {
     // Iterating through the map
     for (let [row, value] of mapping.entries()) {
         if (is_main && should_interrupt_main) {return;}
@@ -435,7 +435,7 @@ async function set_text_from_mapping(mapping, is_main, skip_flicker) {
         if (link_colors != null) {
             is_constant_color = !Array.isArray(link_colors[0]);
         }
-        let flicker = skip_flicker? 0 : 50;
+        let flicker = skip_flicker? 0 : delay;
         for (let i = 0; i < text.length; i++) {
             var colors;
             if (is_constant_color == true) {
@@ -477,13 +477,13 @@ const flipletters = async (is_main = false, skip_flicker = false) => {
     let line_mapping_second = get_line_object(SecondWave, number_of_lines, number_of_characters);
 
     // Iterating through the map
-    await set_text_from_mapping(line_mapping_inital, is_main, skip_flicker)
+    await set_text_from_mapping(line_mapping_inital, is_main, skip_flicker, 40)
 
     // // Pause a moment....
-    if (!skip_flicker) {await delay(2000);}
+    if (!skip_flicker) {await delay(1500);}
 
     // Iterating through the second map...
-    await set_text_from_mapping(line_mapping_second, is_main, skip_flicker)
+    await set_text_from_mapping(line_mapping_second, is_main, skip_flicker, 25)
 }
 
 function load_data() {
@@ -531,7 +531,7 @@ async function make_image(force = false) {
         make_special(get_char_el(row_offset + img_i, col_offset + img_j * 2));
         make_special(get_char_el(row_offset + img_i, col_offset + img_j * 2 + 1));
         if (!PageState.finalized && !force) {
-            await delay(35);
+            await delay(25);
         }
     }
 }
