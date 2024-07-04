@@ -25,6 +25,24 @@
         display: flex;
         width: 100%;
     }
+    .text-container {
+        display: inline-block; /* Ensures the container only takes up as much width as necessary */
+        white-space: pre; /* Prevents wrapping of characters */
+        width: 100%;
+    }
+
+    .char-div {
+        display: inline-block; /* Ensures each character div is inline */
+        /* Add additional styling as needed */
+    }
+    .clickable {
+        cursor: pointer; /* Changes cursor to hand icon */
+    }
+
+    .part-div {
+      min-width: 12.8px;
+      overflow-x: auto;
+    }
 
     clickoverlay {
       height: 100%;
@@ -78,7 +96,10 @@
       }
       span {
           white-space: pre;
+          display: inline-block;
+          width: 100%;
       }
+      
     }
     @media (pointer:none), (pointer:coarse) {    body {
         font-size: 38px;
@@ -103,6 +124,8 @@
       }
       span {
           white-space: pre;
+          display: inline-block;
+          width: 100%;
       }
     }
     img {

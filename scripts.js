@@ -4,11 +4,12 @@
 import {generateColor,
         getTextWidth,
         getTextHeight,
+        colorNameToHex,
         get_height_width,
         getRandomString,
         getWidth,
         getHeight } from './utils.js';
-import { lucretius_one, lucretius_two } from './text.js';
+import { lucretius_one, lucretius_two, lucretius_one_english, } from './text.js';
 
 // Load the documents into data.
 var data;
@@ -45,7 +46,16 @@ class PageType {
   }
 var current_pagetype = PageType.Unloaded;
 
-
+let link_ticks = 50;
+let thought_colors = generateColor(colorNameToHex("red"), "#FFFFFF", link_ticks);
+let link_colors = generateColor("#00D3FF ", "#FFFFFF", link_ticks);
+let white_colors = generateColor(colorNameToHex("purple"), "#FFFFFF", link_ticks);
+let google_colors = [
+    generateColor("#4285F4 ", "#FFFFFF", link_ticks),
+    generateColor("#DB4437 ", "#FFFFFF", link_ticks),
+    generateColor("#F4B400 ", "#FFFFFF", link_ticks),
+    generateColor("#0F9D58 ", "#FFFFFF", link_ticks),
+]
 // Static information we're gonna show.
 // This is a mapping from x-offset, y-offset to list of lines.
 const InitialWave = new Map([
@@ -58,22 +68,92 @@ const InitialWave = new Map([
 const SecondWave = new Map([
     [
         [0.8, 0.7],
-        [[" My Scholar ", "https://scholar.google.com/citations?user=_19DrfIAAAAJ&hl=en"],
-         [" My Twitter ", "https://twitter.com/_aidan_clark_"],
-         [" My Thoughts ", null, moveToThoughts],
+        [[" My Scholar ", "https://scholar.google.com/citations?user=_19DrfIAAAAJ&hl=en", google_colors, null],
+         [" My Twitter ", "https://twitter.com/_aidan_clark_", link_colors, null],
+         [" My Thoughts ", null, thought_colors, moveToThoughts],
+         [" Speak Latin ", null, white_colors, turnOnSpotlight],
         ]
     ]
 ]);
 let num_flickers = 30;
 var SideBarText = [
-    ["Aidan Clark.", null, null],
-    ["", null, null],
-    ["Home", null, moveToHome],
-    ["My Scholar ", "https://scholar.google.com/citations?user=_19DrfIAAAAJ&hl=en", null],
-    ["My Twitter ", "https://twitter.com/_aidan_clark_", null],
+    ["Aidan Clark.", null, null, null],
+    ["", null, null, null],
+    ["Home", null, null, moveToHome],
+    ["My Scholar ", "https://scholar.google.com/citations?user=_19DrfIAAAAJ&hl=en", google_colors, null],
+    ["My Twitter ", "https://twitter.com/_aidan_clark_", link_colors, null],
     ["", null, null],
 
 ];
+
+function getRandomNumber(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function gaussianRandom(mean, stdDev) {
+    let u1 = Math.random();
+    let u2 = Math.random();
+    let randStdNormal = Math.sqrt(-2.0 * Math.log(u1)) * Math.sin(2.0 * Math.PI * u2);
+    return mean + stdDev * randStdNormal;
+}
+
+function getGaussianRandomInRange(min, max) {
+    const mean = (min + max) / 2;
+    const stdDev = (max - min) / 6; // 99.7% of values will lie within this range (3 standard deviations)
+    let randomValue;
+
+    do {
+        randomValue = gaussianRandom(mean, stdDev);
+    } while (randomValue < min || randomValue > max);
+
+    return randomValue;
+}
+
+var IS_IN_ENGLISH_MODE = false;
+var CURRENTLY_ACTIVE = new Set();
+var OLD_TRANSLATED = new Map();
+
+async function spotlight_on(i, j, from_i, from_j, is_edge_i, is_edge_j) {
+    let str = `${i}-${j}-${from_i}-${from_j}`;
+    let old = get_char_el(i, j);
+
+    // Swap value ... but not on images or special tokens
+    if (old != null && !old.innerHTML.includes("img") && !is_special(old)) {
+
+        // Add current value
+        OLD_TRANSLATED.set(str, old.textContent);
+        CURRENTLY_ACTIVE.add(str);
+
+        // console.log(old.innerHTML)
+        let key = i * get_num_characters() + j;
+        let translation = lucretius_one_english.charAt(key);
+        var color;
+        if (is_edge_i || is_edge_j) {
+            swap_letter(translation, i, j, "mediumseagreen", 0, null, false, false);
+            setTimeout(() => {
+                let old = get_char_el(i, j);
+                swap_letter(old.textContent, i, j, "grey", 0, null, false, false);
+            }, getGaussianRandomInRange(120, 300));
+        } else {
+            swap_letter(translation, i, j, "grey", 0, null, false, false);
+        }
+    }
+}
+
+
+async function turnOnSpotlight() {
+    if (IS_IN_ENGLISH_MODE) {
+        // Back to latin!
+        for (const old_str of CURRENTLY_ACTIVE) {
+            let [old_i, old_j, old_from_i, old_from_j] = old_str.split("-");
+            const old_letter = OLD_TRANSLATED.get(old_str);
+            OLD_TRANSLATED.delete(old_letter);
+            swap_letter(old_letter, parseInt(old_i), parseInt(old_j), "grey", 0, null, false, false);
+            CURRENTLY_ACTIVE.delete(old_str);
+        }
+    }
+    IS_IN_ENGLISH_MODE = !IS_IN_ENGLISH_MODE;
+}
 
 // Given a particular number of lines, this looks at the global mapping
 // and decides what should be on each line in a fully-shown world.
@@ -84,68 +164,21 @@ function get_line_object(input_mapping, number_of_lines, number_of_characters) {
         let line_offset = Math.floor(y_offset * number_of_lines);
         let char_offset = Math.floor(x_offset * number_of_characters);
         for (let i = 0; i < value.length; i++) {
-            var [words, link, click_fn] = [null, null, null];
+            var [words, link, link_colors, click_fn] = [null, null, null, null];
             if (value[i].length == 2) {
                 [words, link] = value[i];
             } else if (value[i].length == 3) {
                 [words, link, click_fn] = value[i];
+            } else if (value[i].length == 4) {
+                [words, link, link_colors, click_fn] = value[i];
             } else {
                 console.error("This is bad.");
             }
             let internal_char_offset = Math.min(char_offset, get_num_characters() - words.length);
-            mapping.set(line_offset + i, [internal_char_offset, words, link, click_fn])
+            mapping.set(line_offset + i, [internal_char_offset, words, link, link_colors, click_fn])
         }
     }
     return mapping;
-}
-
-// Given a line mapping, set the html!
-async function set_line_html(data_list, line_mapping, override_fn = null) {
-    for (let [key, value] of line_mapping) {
-        let [j, words, link, click_fn] = value;
-        let new_words = words
-        let line = document.getElementById(`h1_${key}`)
-        let color = "white";
-        var text = data_list[key];
-        let mouseover = null;
-        let mouseout = null;
-        let change_other_html = false;
-        if (override_fn != null) {
-            [new_words, color, mouseover, mouseout, change_other_html] = override_fn(
-                line, words, color);
-        }
-        line.children[1].children[0].innerHTML = new_words;
-        line.children[1].style.color = color
-        if (change_other_html) {
-            line.children[0].innerHTML = text.substr(0, j)
-            line.children[2].innerHTML = text.substr(j + new_words.length)
-        }
-        if (link != null) {
-            line.children[1].setAttribute("href", link);
-        } else if (click_fn != null) {
-            line.children[1].onclick = click_fn;
-        }
-        if (mouseover != null) {
-            line.children[1].setAttribute("data-colorincreasing", false);
-            line.children[1].setAttribute("data-colorindex", 0);
-            line.children[1].addEventListener('mouseover', mouseover);
-        }
-        if (mouseout != null) {
-            line.children[1].addEventListener('mouseout', mouseout);
-        }
-    }
-}
-
-function set_other_lines_to_default(num_lines, empty_lines) {
-    for (let i = 0; i < num_lines; i++) {
-        let line = document.getElementById(`h1_${i}`)
-        if (empty_lines.includes(i)) {
-            line.children[0].innerHTML = data_list[i];
-            line.children[1].children[0].innerHTML = "";
-            line.children[2].innerHTML = "";
-        }
-    }
-
 }
 
 
@@ -179,15 +212,73 @@ function create_element_structure() {
             var newh = document.createElement('h1');
             newh.id = `h1_${i}`
             var newSpan1 = document.createElement('span');
-            var newSpan2 = document.createElement('a');
-            var newSpan2_real = document.createElement('span');
-            newSpan2_real.id = `h1_${i}_innerspan`;
-            newSpan2.appendChild(newSpan2_real);
-            var newSpan3 = document.createElement('span');
             newh.appendChild(newSpan1);
-            newh.appendChild(newSpan2);
-            newh.appendChild(newSpan3);
             document.getElementById('main').appendChild(newh);
+
+            // We're going to add a listener here to delegate from mouse events
+            // on characters which are gonna be added to this like.
+            newh.addEventListener("mouseover", function (event) {
+                if (event.target.hasAttribute("data-colorindex")) {
+                    event.target.mouseoverFn()
+                }
+                if (IS_IN_ENGLISH_MODE && event.target.id.includes("part")) {
+                    // Make the thing english!
+                    let [_, i, j] = event.target.id.split("-")
+                    let [from_i, from_j] = [parseInt(i), parseInt(j)]
+                    let [int_i, int_j] = [parseInt(i), parseInt(j)];
+                    let nl = num_lines();
+                    let nc = get_num_characters();
+
+                    const I_AMOUNT = 4;
+                    const J_AMOUNT = 15;
+
+                    // First, do a sweep and remove old values
+                    var DontTouch = new Set();
+                    for (const old_str of CURRENTLY_ACTIVE) {
+                        let [old_i, old_j, old_from_i, old_from_j] = old_str.split("-");
+                        // Check if the value will still be translated
+                        if (Math.abs(parseInt(old_i) - i) <= I_AMOUNT && Math.abs(parseInt(old_j) - j) <= J_AMOUNT) {
+                            // Do nothing!
+                            DontTouch.add(`${old_i}-${old_j}`)
+                        } else {
+                            const old_letter = OLD_TRANSLATED.get(old_str);
+                            OLD_TRANSLATED.delete(old_letter);
+                            console.log("to grey! B ", old_i, old_j)
+                            swap_letter(old_letter, parseInt(old_i), parseInt(old_j), "grey", 0, null, false, false);
+                            CURRENTLY_ACTIVE.delete(old_str);
+                        }
+                    }
+                    for (let ii = -I_AMOUNT; ii <= I_AMOUNT; ii++) {
+                        let diff_to_i = Math.abs(ii)
+                        let off = Math.ceil(Math.pow(1.7, (I_AMOUNT - diff_to_i) + 2));
+                        let iii = int_i + ii;
+                        for (let jj = -(J_AMOUNT + off); jj <= (J_AMOUNT + off); jj++) {
+                            let jjj = int_j + jj;
+                            if (iii >= 0 && jjj >= 0 && iii <= nl && jjj <= nc) {
+                                if (!DontTouch.has(`${iii}-${jjj}`)) {
+                                    spotlight_on(iii, jjj, i, j,
+                                                 (ii == I_AMOUNT || ii == -I_AMOUNT),
+                                                 (jj == (J_AMOUNT + off) || jj == -(J_AMOUNT + off)));
+                                } else {
+                                    let old = get_char_el(iii, jjj);
+                                    old.style.color = "grey";
+                                }
+                            }
+                        }
+                    }
+                    // spotlight_on(i, j);
+                }
+            });
+            newh.addEventListener("mouseout", function (event) {
+                if (event.target.hasAttribute("data-colorindex")) {
+                    event.target.mouseoutFn()
+                }
+            });
+            newh.addEventListener("click", function (event) {
+                if (event.target.hasAttribute("href")) {
+                    event.target.clickFn()
+                }
+            });
         }
     } else {
         // We need to delete some lines!
@@ -211,42 +302,103 @@ function create_element_structure() {
     }
 }
 
+function insert_line_html(el, text, i) {
+    var parts = text.split('');//.split(/(\s+)/); // Split the string into an array of characters
+
+    // Clear existing content if needed
+    el.innerHTML = '';
+    var containerDiv = document.createElement('h1___');
+    containerDiv.className = 'text-container'; // Optionally, add a class for styling
+    
+    // Create div elements for each part (character or space)
+    parts.forEach(function(part, j) {
+        var partDiv = document.createElement('h1___');
+        partDiv.className = 'part-div'; // Apply a class for styling
+        partDiv.textContent = part; // Use textContent to set text content
+        partDiv.id = "part-" + i + '-' + j;
+        containerDiv.appendChild(partDiv);
+    });
+    // Append the container div to line.children[0]
+    el.appendChild(containerDiv);
+}
+
+function add_mouseover(el, link_colors) {
+    let [mouseover, mouseout] = makeFlickerFunctions(el, link_colors);
+    el.setAttribute("data-colorincreasing", false);
+    el.setAttribute("data-colorindex", 0);
+    el.mouseoverFn = mouseover;
+    el.mouseoutFn = mouseout;
+}
+
+function get_char_el(i, j) {
+    let row = document.getElementById(`h1_${i}`);
+    let chars = row.children[0].children[0].children;
+    return chars[j];
+}
+
+async function swap_letter(to, i, j, color = null, flicker = 0, link_colors, should_add_color_listener = false, as_html = false, is_special = false) {
+    // Swap the letter in row i col j to 'to'
+    let old = get_char_el(i, j);
+    old.textContent = to;
+    if (flicker != 0) {
+        // Flicker the text into existence.
+        let initial_i = 0;
+        var starting_color = colorNameToHex("grey")
+        let colors = generateColor(colorNameToHex(color), starting_color, num_flickers);
+        for (let i = initial_i; i < num_flickers; i++) {
+            let temp_word = getRandomString(to.length, to, (i + 1) / num_flickers);
+            old.textContent = temp_word;
+            if (color != null) {
+                old.style.color = "#" + colors[i];
+            }
+            await delay(flicker);
+        }
+    } else {
+        if (as_html == true) {
+            old.innerHTML = to;
+        } else {
+            old.textContent = to;
+        }
+    }
+    if (color != null) {
+        old.style.color = color;
+    }
+    if (should_add_color_listener == true) {
+        add_mouseover(old, link_colors);
+    }
+    if (is_special) {
+        make_special(old);
+    }
+    return old
+}
+
+function make_special(el) {
+    el.setAttribute("is-special", true);
+}
+
+function unmake_special(el) {
+    el.setAttribute("is-special", false);
+}
+
+function is_special(el) {
+    if (el.hasAttribute("is-special")) {
+        return el.getAttribute("is-special")
+    }
+    return false
+}
+
+
 async function text_resize(previous_state = null) {
     // Get the existing state of the world.
     let element = document.getElementById('main');
     create_element_structure();
     for (let i = 0; i < num_lines(); i++) {
         let line = document.getElementById(`h1_${i}`)
-        line.children[0].innerHTML = data_list[i];
+        insert_line_html(line.children[0], data_list[i], i);
     }
 }
 
-function replaceAt(text, index, replacement, span = 1) {
-    return text.substr(0, index) + replacement + text.substr(index + (span - 1) + replacement.length);
-}
-
-
-let link_ticks = 50;
-let link_colors = generateColor("#00D3FF ", "#FFFFFF", link_ticks);
-
-
-function changeletter(i, j, value, color = "white", link = null) {
-    let v = document.getElementById(`h1_${i}`);
-    if (v.children[1].children[0].innerHTML.length > 0 || v.children[2].innerHTML.length > 0) {
-        var text = v.children[0].innerHTML.concat(v.children[1].children[0].innerHTML, v.children[2].innerHTML);
-    }
-    else {
-        var text = v.children[0].innerHTML;
-    }
-    v.children[0].innerHTML = text.substr(0, j)
-    v.children[1].children[0].innerHTML = value
-    v.children[2].innerHTML = text.substr(j + value.length)
-    if (color != null) {
-        v.children[1].style.color = color;
-    }
-}
-
-function makeFlickerFunctions(el) {
+function makeFlickerFunctions(el, link_colors) {
     let mouseover = async function(){
         el.setAttribute("data-colorincreasing", true);
         while (el.getAttribute("data-colorindex") < link_ticks) {
@@ -268,10 +420,49 @@ function makeFlickerFunctions(el) {
             let i = parseInt(el.getAttribute("data-colorindex"));
             el.style.color = "#" + link_colors[i];
             el.setAttribute("data-colorindex", i - 1)
-            await delay(10);
+            await delay(100);
         }
     }
     return [mouseover, mouseout];
+}
+
+async function set_text_from_mapping(mapping, is_main, skip_flicker) {
+    // Iterating through the map
+    for (let [row, value] of mapping.entries()) {
+        if (is_main && should_interrupt_main) {return;}
+        const [col_start, text, link, link_colors, clickfn] = value;
+        var is_constant_color = true;
+        if (link_colors != null) {
+            is_constant_color = !Array.isArray(link_colors[0]);
+        }
+        let flicker = skip_flicker? 0 : 50;
+        for (let i = 0; i < text.length; i++) {
+            var colors;
+            if (is_constant_color == true) {
+                colors = link_colors;
+            } else {
+                colors = link_colors[i % link_colors.length];
+            }
+            var swap_future = swap_letter(text[i], row, col_start + i, "white", flicker, colors, link != null || clickfn != null, false, true);
+            if (link != null) {
+                swap_future.then((el) => {
+                    // We want to make these links also!
+                    el.classList.add("clickable")
+                    el.setAttribute("href", link)
+                    el.clickFn = function () {
+                        window.location.href = link;
+                    }
+                })
+            } else if (clickfn != null) {
+                swap_future.then((el) => {
+                    // We want to make these links also!
+                    el.classList.add("clickable")
+                    el.onclick = clickfn;
+                })
+
+            }
+        }
+    }
 }
 
 const delay = ms => new Promise(res => setTimeout(res, ms));
@@ -285,156 +476,23 @@ const flipletters = async (is_main = false, skip_flicker = false) => {
     let line_mapping_inital = get_line_object(InitialWave, number_of_lines, number_of_characters);
     let line_mapping_second = get_line_object(SecondWave, number_of_lines, number_of_characters);
 
-    // We need to know which lines don't have anything interesting.
-    let empty_lines = new Array();
-    let initial_keys = Array.from(line_mapping_inital.keys());
-    let second_keys = Array.from(line_mapping_second.keys());
-    for (let i = 0; i < number_of_lines; i++) {
-        if (!initial_keys.includes(i) && !second_keys.includes(i)) {
-            empty_lines.push(i);
-        }
-    }
-    let local_data_list = [...data_list];
+    // Iterating through the map
+    await set_text_from_mapping(line_mapping_inital, is_main, skip_flicker)
 
-    let initial_i = !skip_flicker ? 0 : num_flickers - 1;
+    // // Pause a moment....
+    if (!skip_flicker) {await delay(2000);}
 
-    // Pause a moment....
-    if (!skip_flicker) {await delay(1000);}
-
-    // Flicker the text into existence.
-    let colors = generateColor("#FFFFFF", "#808080", num_flickers);
-    for (let i = initial_i; i < num_flickers; i++) {
-        if (is_main && should_interrupt_main) {return;}
-        set_line_html(local_data_list, line_mapping_inital, function(line, words, color) {
-            let word = getRandomString(words.length, words, (i + 1) / num_flickers);
-            return [word, "#" + colors[i], null, null, i == initial_i];
-        });
-        if (!skip_flicker) {await delay(50);}
-    }
-
-    // Pause again ... and flicker
-    if (!skip_flicker) {await delay(500);}
-    for (let i = initial_i; i < num_flickers; i++) {
-        if (is_main && should_interrupt_main) {return;}
-        set_line_html(local_data_list, line_mapping_second, function(line, words, color) {
-            let word = getRandomString(words.length, words, (i + 1) / num_flickers);
-            // Define our mouseover and mouseouts.
-            let mouseover = null;
-            let mouseout = null;
-            if (i == num_flickers - 1) {
-                [mouseover, mouseout] = makeFlickerFunctions(line.children[1]);
-            } else {
-                mouseover = null;
-                mouseout = null;
-            }
-            return [word, "#" + colors[i], mouseover, mouseout, i == initial_i];
-        });
-        if (!skip_flicker) {await delay(50);}
-    }
-    set_other_lines_to_default(num_lines(), empty_lines);
+    // Iterating through the second map...
+    await set_text_from_mapping(line_mapping_second, is_main, skip_flicker)
 }
-
-var extra = "Bevan Clark if you really must know....";
-function finalize_words() {
-    // We need to add the extra bit, and the hover-colors.
-
-    // Extra first.
-    let number_of_characters = get_num_characters();
-    let number_of_lines = num_lines();
-    let char_offset = Math.floor(0.1 * number_of_characters);
-    let line_offset = Math.floor(0.1 * number_of_lines);
-    let initial = Array.from(InitialWave.values())[0][1][0];
-    if (PageState.revealed_secret) {
-        changeletter(line_offset + 1, char_offset, initial + extra.substr(0, extra.length));
-    } else {
-        if (initial.length + extra.length + char_offset
-            < number_of_characters) {
-                    let v = document.getElementById(`h1_${line_offset + 1}`);
-                    v.onclick = async function() {
-                        if (!PageState.revealed_secret) {
-                            for (let j = 0; j < extra.length; j++) {
-                                changeletter(line_offset + 1, char_offset, initial + extra.substr(0, j));
-                                await delay(35);
-                            }
-                            PageState.revealed_secret = true
-                        }
-                    }
-            }
-    }
-};
 
 function load_data() {
-    if (Math.random() < 0.5) {
-        data = lucretius_one;
-    } else {
-        data = lucretius_two;
-    }
-}
-
-function getAbsoluteHeight(el) {
-    // Get the DOM Node if you pass in a string
-    el = (typeof el === 'string') ? document.querySelector(el) : el; 
-  
-    var styles = window.getComputedStyle(el);
-    var margin = parseFloat(styles['marginTop']) +
-                 parseFloat(styles['marginBottom']);
-  
-    return Math.ceil(el.offsetHeight + margin);
-  }
-
-function flip_all_imgs() {
-    // First we check if the image is too small to show.
-    let chars_per_img = 2;
-    let [xoff, yoff] = imgoffset;
-    for (let i = xoff; i < xoff + 5; i++) {
-        let v = document.getElementById(`h1_${i + xoff}`);
-        let v_post = v.children[2].innerHTML.length;
-        var child;
-        if (v_post > 0) {
-            child = v.children[2];
-        } else {
-            child = v.children[0];
-        }
-        if (child.innerHTML.length < (chars_per_img * 5)) {
-            return;
-        }
-    }
-    // We also don't print if it goes over into the second wave lines.
-    let line_mapping_second = get_line_object(SecondWave, num_lines(), get_num_characters());
-    let second_keys = Array.from(line_mapping_second.keys());
-    for (let i = 0; i < num_lines(); i++) {
-        if (second_keys.includes(i)) {
-            let v = document.getElementById(`h1_${i}`);
-            yoff = Math.floor((v.children[2].innerHTML.length + 1) / 2);
-        }
-        if (second_keys.includes(i) && (i >= xoff && i < xoff +5)) {
-            return;
-        }
-    }
-
-    let [character_height, character_width] = get_height_width();
-    for (let i = 0; i < 6; i++) {
-        let v = document.getElementById(`h1_${i + xoff}`);
-        let v_post = v.children[2].innerHTML.length;
-        var child;
-        if (v_post > 0) {
-            child = v.children[2];
-        } else {
-            child = v.children[0];
-        }
-        let j = 4;
-        var all_s = "";
-        let end = child.innerHTML.substring(child.innerHTML.length - yoff);
-        child.innerHTML = child.innerHTML.substring(0, child.innerHTML.length - yoff);
-        while (j >= 0) {
-            let s = `<img alt="Q" src="../img/me_${i}_${j}.png"  height="${character_height}px" width="${character_width * 2}">`;
-            let newhtml = child.innerHTML.substring(0, child.innerHTML.length - 2);
-            child.innerHTML = newhtml;
-            all_s = s + all_s;
-            j--;
-        } 
-        child.innerHTML = child.innerHTML + all_s + end;
-    }
+    data = lucretius_one;
+    // if (Math.random() < 0.5) {
+    //     data = lucretius_one;
+    // } else {
+    //     data = lucretius_two;
+    // }
 }
 
 /* Randomize array in-place using Durstenfeld shuffle algorithm */
@@ -448,174 +506,33 @@ function shuffleArray(array) {
 }
 
 async function make_image(force = false) {
-    if (matchMedia('(pointer:coarse)').matches) {
+    if (matchMedia('(pointer:coarse)').matches || get_num_characters() < 30 || num_lines() < 12) {
         // Don't show an image on mobile.
         return;
     }
-    // If we've loaded the page before, just show everything.
-    if (PageState.finalized || force) {
-        flip_all_imgs();
-    } else{    
-        let [xoff, yoff] = imgoffset;
-        let line_mapping_second = get_line_object(SecondWave, num_lines(), get_num_characters());
-        let second_keys = Array.from(line_mapping_second.keys());
-        for (let i = 0; i < num_lines(); i++) {
-            if (second_keys.includes(i)) {
-                let v = document.getElementById(`h1_${i}`);
-                yoff = Math.floor((v.children[2].innerHTML.length + 1) / 2);
-            }
-        }
-        // Let's do something fancier.
-        var img_keys = [...Array(30).keys()];
-        // var img_keys = [4, 1, 3, 0, 2];
-        shuffleArray(img_keys);
-        let num_lines_in_screen = num_lines(); 
-        let chars_in_line = new Array(num_lines_in_screen).fill(0);
-        for (let i = 0; i < num_lines_in_screen; i++) {
-            let v = document.getElementById(`h1_${i}`);
-            let v_post = v.children[2].innerHTML.length;
-            if (v_post > 0) {
-                chars_in_line[i] = v_post;
-            } else {
-                chars_in_line[i] = get_num_characters();
-            }
-        }
-        let chars_per_img = 2;
-        let [character_height, character_width] = get_height_width();
-        let img_blocks_wide = 5;
-        let image_width = (chars_per_img * img_blocks_wide);
-        let chars_replace = new Array(30).fill(0);
-        for (let i = 0; i < img_keys.length; i++) {
-            let img_i = Math.floor(img_keys[i] / img_blocks_wide);
-            let starting_index = chars_in_line[img_i + xoff] - (yoff + image_width);
-            // console.log(chars_in_line[img_i + xoff], starting_index, image_width);
-            let img_j = img_keys[i] % 5;
-            let v = document.getElementById(`h1_${img_i + xoff}`);
-            let v_post = v.children[2].innerHTML.length;
-            var child;
-            if (v_post > 0) {
-                child = v.children[2];
-            } else {
-                child = v.children[0];
-            }
-            let img_html = `<img alt="Q" src="../img/me_${img_i}_${img_j}.png"  height="${character_height}px" width="${character_width * 2}">`;
-            let length_of_img = img_html.length - 1;
-            // console.log(length_of_img);
-            // We're going to replace a character with an image.
-            // First, we need to count the number of characters
-            // preceeding our <img> including <imgs> which have been put in before.
-            var proceeding_chars = starting_index;
-            var in_addition = 0;
-            var imgs_put_in_row_preceeding = 0;
-            // console.log(img_i, img_j, img_i * img_blocks_wide , (img_i * img_blocks_wide) + img_j);
-            for (let j = img_i * img_blocks_wide; j < (img_i * img_blocks_wide) + img_j; j++) {
-                if (chars_replace[j] == 1) {
-                    in_addition += length_of_img;
-                    imgs_put_in_row_preceeding += 1;
-                } else {
-                    in_addition += chars_per_img;
-                }
-            }
-            // console.log(imgs_put_in_row_preceeding);
-            // console.log(in_addition)
-            proceeding_chars += in_addition;
-            // console.log(proceeding_chars);
-            // console.log(child.innerHTML);
-            // console.log(child.innerHTML.substring(0, proceeding_chars));
-            // console.log(child.innerHTML.substring(proceeding_chars + chars_per_img));
-            await delay(50);
-            var substr = (
-                child.innerHTML.substring(0, proceeding_chars)
-                + img_html
-                + child.innerHTML.substring(proceeding_chars + chars_per_img) 
-            );
-            child.innerHTML = substr;
-            chars_replace[img_keys[i]] = 1;
-            // if (i == 3) {return;}
-        }
-    }
-}
-
-async function flickerOutImage(delay_in_ms) {
-    if (matchMedia('(pointer:coarse)').matches) {
-        // There's nothing to do on mobile.
-        return;
-    }
-    let [xoff, yoff] = imgoffset;
-    let line_mapping_second = get_line_object(SecondWave, num_lines(), get_num_characters());
-    let second_keys = Array.from(line_mapping_second.keys());
-    for (let i = 0; i < num_lines(); i++) {
-        if (second_keys.includes(i)) {
-            let v = document.getElementById(`h1_${i}`);
-            yoff = Math.floor((v.children[2].innerHTML.length + 1) / 2);
-        }
-    }
-    // Let's do something fancier.
-    var img_keys = [...Array(30).keys()];
-    shuffleArray(img_keys);
-    let num_lines_in_screen = num_lines(); 
-    let chars_in_line = new Array(num_lines_in_screen).fill(0);
-    let [character_height, character_width] = get_height_width();
+    // I think this should all be much simpler now..
     let chars_per_img = 2;
     let img_blocks_wide = 5;
-    let template_html = `<img alt="Q" src="../img/me_0_0.png"  height="${character_height}px" width="${character_width * 2}">`;
-    for (let i = 0; i < num_lines_in_screen; i++) {
-        let v = document.getElementById(`h1_${i}`);
-        let v_post = v.children[2].innerHTML.length;
-        if (v_post > 0) {
-            chars_in_line[i] = v_post
-        } else {
-            chars_in_line[i] = v.children[0].innerHTML.length
-        }
-    }
-    let image_width = (chars_per_img * img_blocks_wide);
-    let chars_replace = new Array(30).fill(1);
+    let offset_from_right = 3;
+    let row_offset = 1;
+    let col_offset = get_num_characters() - (img_blocks_wide * chars_per_img + offset_from_right);
+
+    let [character_height, character_width] = get_height_width();
+    var img_keys = [...Array(30).keys()];
+    // We want to do a random order!
+    shuffleArray(img_keys);
     for (let i = 0; i < img_keys.length; i++) {
-        let img_i = Math.floor(img_keys[i] / img_blocks_wide);
-        let vv = document.getElementById(`h1_${img_i + xoff}`);
-        let len = null;
-        let vv_post = vv.children[2].innerHTML.length;
-        if (vv_post > 0) {
-            len = vv_post
-        } else {
-            len = vv.children[0].innerHTML.length;
-        }
-        let starting_index = len - (yoff);
-        let img_j = img_keys[i] % 5;
+        let img_i = Math.floor(img_keys[i] / (img_blocks_wide));
+        let img_j = img_keys[i] % (5);
+        let row_id = row_offset + img_i;
         let img_html = `<img alt="Q" src="../img/me_${img_i}_${img_j}.png"  height="${character_height}px" width="${character_width * 2}">`;
-        let length_of_img = img_html.length - 1;
-        for (let j = img_i * img_blocks_wide + img_j; j < (img_i + 1) * img_blocks_wide; j++) {
-            if (chars_replace[j] == 1) {
-                starting_index -= length_of_img;
-            } else {
-                starting_index -= chars_per_img;
-            }
+        swap_letter(img_html, row_offset + img_i, col_offset + img_j * 2, null, 0, null, false, true);
+        swap_letter("", row_offset + img_i, col_offset + img_j * 2 + 1, null, 0, null, false, false);
+        make_special(get_char_el(row_offset + img_i, col_offset + img_j * 2));
+        make_special(get_char_el(row_offset + img_i, col_offset + img_j * 2 + 1));
+        if (!PageState.finalized && !force) {
+            await delay(35);
         }
-        let v = document.getElementById(`h1_${img_i + xoff}`);
-        let v_post = v.children[2].innerHTML.length;
-        var child;
-        if (v_post > 0) {
-            child = v.children[2];
-        } else {
-            child = v.children[0];
-        }
-        // console.log(length_of_img);
-        // We're going to replace a character with an image.
-        // First, we need to count the number of characters
-        // preceeding our <img> including <imgs> which have been put in before.
-        var proceeding_chars = starting_index;
-        var in_addition = 0;
-        var imgs_put_in_row_preceeding = 0;
-        proceeding_chars += in_addition;
-        await delay(delay_in_ms);
-        var substr = (
-            child.innerHTML.substring(0, proceeding_chars)
-            + "".padStart(chars_per_img, " ")
-            + child.innerHTML.substring(proceeding_chars + length_of_img) 
-        );
-        child.innerHTML = substr;
-        chars_replace[img_keys[i]] = 0;
-        // if (i == 3) {return;}
     }
 }
 
@@ -656,16 +573,13 @@ export async function do_main(force = false) {
         await text_resize()
         PageState.text_laid_out = true;
         PageState.current_num_lines = num_lines();
-        console.log(force);
         let flipping_letters = flipletters(true, force);
         if (force) {
             // Instantly make ready.
             resize_fn();
-        } else {
-            await flipping_letters;
         }
+        await flipping_letters;
         PageState.words_flipped = true;
-        await finalize_words();
         await make_image(false);
         PageState.finalized = true;
         running_main = false;
@@ -694,7 +608,6 @@ async function resize_fn(force_instant = false) {
         PageState.current_num_lines = num_lines();
         flipletters(false, true);
         PageState.words_flipped = true;
-        finalize_words();
         PageState.finalized = true;
     } else {
         // We're already loaded! We just need to reformat.
@@ -704,7 +617,6 @@ async function resize_fn(force_instant = false) {
             return;
         }
         flipletters(false, true);
-        finalize_words();
         PageState.current_num_lines = num_lines();
     }
     await make_image();
@@ -714,45 +626,34 @@ async function resize_fn(force_instant = false) {
 
 };
 
-function getRandomInt(min, max) {
-    min = Math.ceil(min);
-    max = Math.floor(max);
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
 
-async function slowdropout(el, delay_in_ms) {
-    let L = el.innerHTML.length;
-    var img_keys = [...Array(L).keys()];
-    shuffleArray(img_keys);
-    for (let i = 0; i < L; i++) {
-        let j = img_keys[i];
-        var substr = (
-            el.innerHTML.substring(0, j)
-            + " "
-            + el.innerHTML.substring(j + 1) 
-        );
-        el.innerHTML = substr;
-        await delay(delay_in_ms);
-    }
-
+async function change_color(el, color) {
+    let is_image = el.textContent.length != el.innerHTML.length
+    if (is_image) {
+        el.style.color = color
+        el.innerHTML = ""
+        el.textContent = "XX"
+    } else {
+        el.style.color = color
+    }  
 }
 
 async function blackoutBackground(delay_in_ms) {
     let m = num_lines();
+    let k = get_num_characters();
     var promises = Array();
-    for (let i = 0; i <= m; i++) {
-        let line = document.getElementById(`h1_${i}`)
-        if (line != null
-            && line.children.length > 0
-            && line.children[1].children.length > 0) {
-                if (line.children[1].children[0].innerHTML.length > 0) {
-                    promises.push(slowdropout(line.children[0], delay_in_ms));
-                    promises.push(slowdropout(line.children[1].children[0], delay_in_ms));
-                    promises.push(slowdropout(line.children[2], delay_in_ms));
-                } else {
-                    promises.push(slowdropout(line.children[0], delay_in_ms));
-                }
+    var char_keys = [...Array(m * k).keys()];
+    shuffleArray(char_keys);
+    for (let ii = 0; ii < char_keys.length; ii++) {
+        let char_i = Math.floor(char_keys[ii] / (k));
+        let char_j = char_keys[ii] % (k);
+        let el = get_char_el(char_i, char_j)
+        if (el != null) {
+            promises.push(change_color(el, "black"))
+            if (ii % 20 == 0) {
+                await delay(delay_in_ms);
             }
+        }
     }
     return Promise.allSettled(promises);
 }
@@ -809,7 +710,8 @@ async function drawSidebar(fade_in = true) {
     for (let i = 0; i < SideBarText.length; i++) {
         let str = SideBarText[i][0];
         let link = SideBarText[i][1];
-        let action = SideBarText[i][2];
+        let color = SideBarText[i][2];
+        let action = SideBarText[i][3];
         var welcomeh = document.createElement('h2');
         sidebar.appendChild(welcomeh);
         var welcomespan = document.createElement('a');
@@ -817,19 +719,11 @@ async function drawSidebar(fade_in = true) {
         welcomespan.style.color = "white";
         if (action != null) {
             welcomespan.onclick = action;
-            let [mouseover, mouseout] = makeFlickerFunctions(welcomespan);
-            welcomespan.setAttribute("data-colorincreasing", false);
-            welcomespan.setAttribute("data-colorindex", 0);
-            welcomespan.addEventListener('mouseover', mouseover);
-            welcomespan.addEventListener('mouseout', mouseout);
+            welcomespan.classList.add("clickable")
         }
         if (link != null) {
             welcomespan.setAttribute("href", link);
-            let [mouseover, mouseout] = makeFlickerFunctions(welcomespan);
-            welcomespan.setAttribute("data-colorincreasing", false);
-            welcomespan.setAttribute("data-colorindex", 0);
-            welcomespan.addEventListener('mouseover', mouseover);
-            welcomespan.addEventListener('mouseout', mouseout);
+            welcomespan.classList.add("clickable")
         }
         welcomeh.appendChild(welcomespan);
     }
@@ -849,13 +743,10 @@ async function drawSidebar(fade_in = true) {
 async function unloadWelcomeAndSwitch(immediate = false) {
     // Flicker out everything visible.
     if (immediate == false) {
-        await flickerOutImage(2);
-        await blackoutBackground(3);
+        await blackoutBackground(1);
     } else {
-        await flickerOutImage(0);
         await blackoutBackground(0);
     }
-
 
     // Delete the invisible divs!
     let main = document.getElementById(`main`);
@@ -904,6 +795,9 @@ export async function moveToThoughts(push_state = true) {
         return;
     } else {
         switching = true;
+        if (IS_IN_ENGLISH_MODE) {
+            turnOnSpotlight();
+        }
         await switchToSidebar();
         switching = false;
 
@@ -945,4 +839,22 @@ window.addEventListener('popstate', function(event) {
     } else if (event.state === "Home") {
         switchToHomeContent();
     }
+});
+
+let lastScrollTop = 0;
+
+window.addEventListener('scroll', function() {
+    let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+    if (scrollTop > lastScrollTop) {
+        // Scrolling down
+        console.log('Scrolling down');
+        // Add your logic for intercepting scroll down here
+    } else {
+        // Scrolling up
+        console.log('Scrolling up');
+        // Add your logic for intercepting scroll up here
+    }
+
+    lastScrollTop = scrollTop <= 0 ? 0 : scrollTop; // For Mobile or negative scrolling
 });

@@ -61,6 +61,27 @@ function hex (c) {
       
   }
 
+  export function colorNameToHex(color) {
+    // Create a temporary element
+    var tempDiv = document.createElement("div");
+    // Set the color
+    tempDiv.style.color = color;
+    // Append the element to the document
+    document.body.appendChild(tempDiv);
+
+    // Get the computed style of the element
+    var computedColor = window.getComputedStyle(tempDiv).color;
+
+    // Remove the temporary element
+    document.body.removeChild(tempDiv);
+
+    // Convert the RGB color to hex
+    var rgb = computedColor.match(/\d+/g);
+    var hex = "#" + ((1 << 24) + (parseInt(rgb[0]) << 16) + (parseInt(rgb[1]) << 8) + parseInt(rgb[2])).toString(16).slice(1).toUpperCase();
+
+    return hex;
+}
+
 // These are utilities for dealing with how big text is.
 /**
   * Uses canvas.measureText to compute and return the width of the given text of given font in pixels.
